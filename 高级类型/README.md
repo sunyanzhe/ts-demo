@@ -1,53 +1,27 @@
+# 高级类型
+## 交叉类型（intersection Types）
 
+交叉类型是将多个类型合并为一个类型。这让我们可以把现有的多种类型叠加到一起成为一个类型，它包含了所需的所有类型的特性。例如，`Person & Serializable & Loggable`同时时`Person`和`Seralizable`和`Loggable`。就是说这个类型的对象同时拥有了三种类型的成员。
 
+我们大多是混入(mixins)或其他不适合典型面形对象模型的地方看到交叉类型的使用。（在Javascript里发生这种情况的场合很多！）下面是如何创建混入的一个简单例子（'target': 'es5'）
 
+```ts
+function extend<First, Second>(first: First, second: Second): First & Second {
+  const result: A<First & Second> = {};
+  for (const prop in first) {
+    if (first.hasOwnProperty(prop)) {
+      (result as First)[prop] = first[prop]
+    }
+  }
+  for (const prop in second) {
+    if (second.hasOwnProperty(prop)) {
+      (result as Second)[prop] = second[prop]
+    }
+  }
+  return result as First & Second;
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+```
 ## 联合类型
 一个代码库希望传入`number`或`string`类型的参数
 ```ts
@@ -307,6 +281,44 @@ c.b = null // error
 
 ```ts
 function f(sn: string | null): string {
-  
+  if (sn == null) {
+    return 'default'
+  } else {
+    return sn;
+  }
 }
 ```
+
+也可使用短路操作符
+
+```ts
+function f(sn: string | null): string {
+  return sn || 'default'
+}
+```
+
+
+如果编译器不能去除`null`或`undefined`，你可以使用类型断言手动去除。语法是添加`!`后缀： `identifier!`从`identifier`的类型里去除了`null`和`undefined`:
+
+```ts
+function broken(name: string | null): string {
+  function postfix(epithet: string) {
+    return name.charAt(0) + '. the ' + epithet; // error, name is possibly null
+  }
+  name = name || 'Bob'
+  return postfix('great')
+}
+
+function fixed(name: string | null): string {
+  function postfix(epithet: string) {
+    return name!.chartAt(0) + '. the ' + epithet; // okay
+  }
+  name = name || 'bob'
+  return postfix('great')
+}
+```
+
+使用了嵌套函数，因为编译器无法去除嵌套函数的null（除非是立即执行函数表达式）。因为它无法跟踪所有对嵌套函数的调用，尤其是你将内层函数作为外层函数的返回值。如果无法知道函数在哪里被调用，就无法知道调用时name的类型。
+
+## 类型别名
+类型别名会比
