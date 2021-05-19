@@ -33,3 +33,25 @@ function getProperty<T, K extends keyof T>(o: T, prop: K): T[K] {
 let n: string = getProperty(taxi, 'model')
 let y: number = getProperty(taxi, 'year')
 let unknown = getProperty(taxi, 'unknown') //error
+
+interface Dictionary<T> {
+  [key: string]: T
+}
+let keys: keyof Dictionary<number>; // string | number
+let value: Dictionary<number>['foo']; // number
+
+keys = 1
+keys = 'a'
+
+
+interface Dictionary2<T> {
+  [key: number]: T
+}
+
+let keys2: keyof Dictionary2<number>;
+let value2: Dictionary2<number>['foo'] //error
+let value3: Dictionary2<number>[2] // okay
+
+keys2 = 'a' // error
+
+keys2 = 1 // ok

@@ -531,3 +531,126 @@ function area(s: Shape) {
 
 ## 多态的this类型
 多态的this类型表示的是某个包含类或接口的**子类型**。这被称作**F-bounded**多态性。它能很容易的表现连贯接口间的继承。比如，在计算器的例子里，在每个操作之后都返回`this`类型。
+
+
+### 索引类型和字符串类型签名
+
+`keyof` 和 `T[K]`与字符串索引签名进行交互。索引签名的参数类型必须为`number`和`string`.如果你有一个带有字符串索引签名的类型，那么`keyof T`会是`string | number`。（并且只有`string`，因为在JS里，你可以使用字符串`object['42']`或数字`object[42]`索引来访问对象属性。并且`T[string]`为索引签名的类型：
+
+```ts
+interface Dictionary<T> {
+  [key: string]: T;
+}
+let keys: keyof Dictionary<number>; // string | number
+let value: Dictionary<number>['foo'] // number
+```
+
+如果一个类型带有数字索引签名，那么`keyof T`为`number`
+
+```ts
+interface Dictionary<T> {
+  [key: number]: T;
+}
+let keys: keyof Dictionary<number>; // number
+let value: Dictionary<number>['foo']; // Error foo是字符串
+let value: Dictionary<number>[42] // number
+```
+
+## 映射类型
+一个常见的任务是将一个已经的类型每个属性都变成可选的
+
+```ts
+interface PersonPartail {
+  name?: string;
+  age?: number;
+}
+```
+
+或者我们想要一个只读版本
+```ts
+interface PersonReadonly {
+  readonly name: string;
+  readonly age: number
+}
+```
+
+这在JS里经常出现，TS提供了旧类型中创建新类型的一种方式——**映射类型**。在映射类型里，新类型以相同的形式去转换旧类型里每个属性。例如，你可以令每个属性成为`readonly`类型或可选的。
+
+```ts
+type Readonly<T> = {
+  readonly [P in keyof T]: T[P]
+}
+type Partial<T> = {
+  [P in keyof T]?: T[P]
+}
+```
+
+需要注意的是这个语法描述的是类型而非成员。若想添加成员，则可以使用交叉类型
+
+```ts
+
+// this is okay
+type PartialWithNewMember<T> = {
+  [P in keyof T]?: T[P]
+} & { newMember: boolean }
+
+// error
+type PartialWithNewMember<T> = {
+  [P in keyof T]?: T[P]
+  newMember: boolean
+}
+```
+
+现一下映射类型和它的组成部分
+```ts
+type Keys = 'option1' | 'option2'
+type Flags = { [K in Keys]: boolean };
+```
+
+他的语法与索引签名的语法类似，内部使用了`for...in`。具有三个部分
+1. 类型变量K，它会依次绑定到每个苏醒
+2. 字符串字面量联合的`Keys`，它包含了要迭代的属性名的集合。
+3. 属性的结果类型
+
+这个简单的例子里，`Keys`是硬编码的属性名列表并且属性类型永远是`boolean`，因此这个映射类型等同于：
+```ts
+type Flags = {
+  option1: boolean;
+  option2: boolean;
+}
+```
+
+在真正的应用里，可能不同于上面的`Readonly`或`Partial`。它们会基于一些已存在的类型，且按照一定的方式转换字段。这就是`keyof`和索引访问类型要做的事情
+
+```ts
+type Nullable<T> = { [P in keyof T]: T[P] | null }
+type Partial<T> = { [P in keyof T]?: T[P] }
+```
+
+在这些例子里，属性列表是`keyof T`且结果类型是`T[P]`的变体。这时使用通用映射类型的一个好模板。因为这类转换是同态的，映射只作用于`T`的属性而没有其他的。编译器知道在添加任何新属性之前，可以拷贝所有存在的属性修饰符。例如，假设`Person.name`是只读的，那么`Partial<Person>.name`将是只读且为可选
+
+下面是另一个例子，`T[P]`被包装在`Proxy<T>`类里：
+```ts
+type Proxy<T> = {
+  get(): T;
+  set(value: T): void
+}
+type Proxify<T> = {
+  [P in keyof T]: Proxy<T[P]>
+}
+function proxify<T>(o: T): Proxify<T> {
+  // ... wrap proxies ...
+}
+let proxyProps = proxify(props);
+```
+
+`Readonly<T>`与`Partial<T>`用处不小，因此它们与`Pick`和`Record`一同被包含进了TS的标准库里：
+
+```ts
+type Pick<T, K extends keyof T> = {
+  [P in K]: T[P]
+}
+type Record<K extends keyof any, T> = {
+  [P in K]: T;
+}
+```
