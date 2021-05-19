@@ -321,4 +321,213 @@ function fixed(name: string | null): string {
 使用了嵌套函数，因为编译器无法去除嵌套函数的null（除非是立即执行函数表达式）。因为它无法跟踪所有对嵌套函数的调用，尤其是你将内层函数作为外层函数的返回值。如果无法知道函数在哪里被调用，就无法知道调用时name的类型。
 
 ## 类型别名
-类型别名会比
+类型别名会给一个类型起个新名字。类型别名有时和接口很像，但是可以作用域原始值，联合类型，元组以及其他任何你需要手写的类型。
+
+```ts
+type Name = string;
+type NameResolver = () => string;
+type NameOrResolver = Name | NameResolver
+
+function getName(n: NameOrResolver): Name {
+  if (typeof n === 'string') {
+    return n
+  } else {
+    return n()
+  }
+}
+```
+
+起别名并不会建立新的类型，他只是创建了一个新名字来引用那个类型。给原始类型起别名通常没什么用，尽管可以做为文档的一种形式使用。
+同接口一样，类型别名也可以是泛型 - 我们可以添加类型参数并且在别名生命右侧传入：
+
+```ts
+type Container<T> = {value: T}
+```
+
+我们也可以使用类型别名来在属性里引用自己
+
+```ts
+type Tree<T> = {
+  value: T,
+  left: Tree<T>,
+  right: Tree<T>
+}
+```
+
+与交叉类型一起使用，我们可以创建出一些稀奇古怪的类型
+
+```ts
+type LinkedList<T> = T & { next: LinkedList<T> };
+
+interface Person {
+  name: string;
+}
+
+let people: LnkedList<Person>
+let s = people.name
+s = people.next.name
+s = people.next.next.name
+s = people.next.next.next.name;
+```
+
+然而，类型别名不能出现在声明右侧的任何地方
+
+```ts
+type Yikes = Array<Yikes>; //error
+```
+
+## 接口 vs. 类型别名
+interface与type之间的细微差别
+
+1. interface创建了一个新的名字，可以在其他地方使用。type并不创建新名字——比如，错误信息不会使用别名。在下面的示例代码里，在编译器中将鼠标悬停在interface上，显示它返回的是Interface，但悬停在aliased上时，显示的是对象字面量类型
+
+```ts
+type Alias = {num: number}
+interface Interface {
+  num: number
+}
+declare function aliased(arg: Alias): Alias;
+declare function interfaced(arg: Interface): Interface;
+```
+
+在旧版本的TS里，type不能被继承和实现（也不能继承和实现其他类型）。在TS2.7开始，type可以被继承并生成新的交叉类型
+
+因为软件中的秀爱那个应该对于扩展是开放的，但是对于修改是封闭的，应该尽量使用interface代替type
+另一方面，如果你无法通过接口来描述一个类型并且需要使用联合类型或者元组类型，这时通常会使用type
+
+
+## 字符串字面量类型
+字符串字面量类型允许你指定字符串必须的固定值。在实际应用中，字符串字面量类型可以与联合类型，类型守卫和类型别名很好的配合。通过结合使用这些特性，你可以实现类似枚举类型的字符串
+
+```ts
+type Easing = 'ease-in' | 'ease-out' | 'ease-in-out'
+class UIElement {
+  animate(dx: number, dy: number, easing: Easing) {
+    if (easing === 'ease-in') {
+
+    } else if (easing === 'ease-out') {
+
+    } else if (easing === 'ease-in-out') {
+      
+    } else {
+
+    }
+  }
+}
+let button = new UIElement()
+button.animate(0, 0, 'ease-in')
+button.animate(0, 0, 'uneasy') // error
+```
+
+字符串字面量类型还可以用于区分函数重载：
+```ts
+function createElement(tagName: 'img'): HTMLImageElement;
+function createElement(tagName: 'input'): HTMLInputElement;
+
+function createElement(tagName: string): Element {
+  // ... code goes here ...
+}
+```
+
+## 数字字面量类型
+TS还具有数字字面量类型
+```typescript
+function rollDice(): 1 | 2| 3|4|5|6 {
+  // ...
+}
+
+function foo(x: number) {
+  if (x !== 1 || x !== 2) {
+    // !== cannot be applied to types '1' and '2'
+  }
+}
+```
+
+换句话说，当x与2进行比较的时候，它的值必须为`1`，这就意味这上面的比较检查是非法的
+
+## 可辨识联合
+你可以合并单例类型，联合类型，类型守卫和类型别名来创建一个叫做**可辨识联合**的高级模式，他也称做标签联合或**代数数据类型**。可辨识联合在函数式编程里很有用处。一些语言会自动地为你辨识联合；而Ts则基于已有的JS模式。他具有三种要素：
+1. 具有普通的单例类型属性————可辨识的特征
+2. 一个类型别名包含了那些类型的联合——联合
+3. 此属性上的类型首位
+
+```ts
+
+interface Square {
+  kind: 'square'
+  size: number
+}
+interface Rectangle {
+  kind: 'rectangle'
+  width: number
+  height: number
+}
+interface Circle {
+  kind: 'circle'
+  radius: number
+}
+```
+
+首先我们声明了将要联合的接口。每个接口都有`kind`属性但有不同的字符串字面量类型。`kind`属性称作**可辨识的特征**或者**标签**。其他的属性则特定于各个接口。注意，目前各个接口间是没有联系的。下面我们把他们联合到一起
+
+```ts
+type Shape = Square | Rectangle | Circle;
+```
+
+现在我们使用可辨识联合：
+```ts
+function area(s: Shape) {
+  switch(s.kind) {
+    case 'square': return s.size * s.size;
+    case 'rectangle': return s.height * s.width;
+    case 'circle': return Math.PI * s.radius ** 2
+  }
+}
+```
+
+### 完整性检查
+当没有涵盖所有可辨识联合的变化时，我们想让编译器可以通知我们。比如，如果我们添加了Triangle到Shape，我们同时还需要更新area:
+```ts
+type Shape = Square | Rectangle | Circle | Triangle;
+function area(s: Shape) {
+  switch(s.kind) {
+    case 'square': return s.size ** 2
+    case 'rectangle': return s.height * s.width;
+    case 'circle': return Math.PI * rs.radius ** 2
+  }
+  //  should error here -- we didn't handle case 'triangle'
+}
+```
+
+有两种方式可以实现。首先是启用`--strictNullChecks`并且指定一个返回值类型：
+```ts
+function area(s: Shape): number { // error: returns number | undefined
+  switch(s.kind) {
+    case 'square': return s.size ** 2
+    case 'rectangle': return s.height * s.width;
+    case 'circle': return Math.PI * s.radius ** 2
+  }
+}
+
+```
+
+因为switch没有包含所有情况，所以Ts认为这个函数有时候会返回undefined，如果你明确地指定了返回值类型为`number`，那么你会看到一个错误，因为实际上返回值的类型为`number | undefined`.然而，这种方法存在有些微妙之处且`strictNullChecks`对旧代码支持不友好
+
+第二种方法使用`never`类型，编译器用它来进行完整性检查：
+```ts
+function assertNever(x: never): never {
+  throw new Error('Unexpected object: ' + x)
+}
+function area(s: Shape) {
+  switch (s.kind) {
+    case 'square': return s.size ** 2
+    case 'rectangle': return s.height * s.width;
+    case 'circle': return Math.PI * s.radius ** 2
+    default: return assertNever(s); // error
+  }
+}
+```
+这里，`assertNever`检查`s`是否为`never`类型——即为除去所有可能后剩下的类型。如果你忘记了某个case，那么`s`将具有一个真实的类型并且你会得到一个错误。这种方式需要你定义一个额外的函数，但是你在忘记某个case的时候也更加明显
+
+## 多态的this类型
+多态的this类型表示的是某个包含类或接口的**子类型**。这被称作**F-bounded**多态性。它能很容易的表现连贯接口间的继承。比如，在计算器的例子里，在每个操作之后都返回`this`类型。
