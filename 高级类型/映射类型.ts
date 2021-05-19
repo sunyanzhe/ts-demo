@@ -52,3 +52,36 @@ function unproxify<T>(t: Proxify<T>): T {
   return obj
 }
 
+
+
+// 有条件类型
+declare function f<T extends boolean>(x: T): T extends true ? string : number
+
+let x = f(Math.random() < 0.5);  // string | number
+
+type TypeName<T> = 
+  T extends string ? 'string' :
+  T extends number ? 'number' :
+  T extends boolean ? 'boolean' :
+  T extends undefined ? 'undefined' :
+  T extends Function ? 'function' :
+  'object'
+
+type T0 = TypeName<string>
+type T1 = TypeName<'a'>
+type T2 = TypeName<true>
+type T3 = TypeName<() => void>
+type T4 = TypeName<string[]>
+
+interface Foo {
+  propA: boolean
+  propB: boolean
+}
+
+declare function f<T>(x: T): T extends Foo ? string : number
+
+function foo<U>(x: U) {
+  let a = f(x)
+
+  let b: string | number = a
+}

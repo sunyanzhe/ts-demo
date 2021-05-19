@@ -677,3 +677,75 @@ function unproxify<T>(t: Proxify<T>): T {
 }
 
 ```
+
+### 有条件类型
+TS2.8引入了有条件类型，它能够表示非统一的类型。有条件的类型会以一个条件表达式进行类型关系检测，从而在两种类型中选择其一：
+```ts
+T extends U ? X : Y
+```
+
+上面的类型意思是，若T能够赋值给U，那么类型是X，否则为Y
+有条件的类型`T extends U ? X : Y`或者解析为X，或者解析为Y，再或者延迟解析，因为它可能依赖一个或多个类型变量，若T或U包含类型参数，那么是否解析为X或Y或推迟，取决于类型系统是否有足够的信息来确定T总是可以赋值给U
+
+下面是一些类型可以被立即解析的例子：
+```ts
+declare function f<T extends boolean>(x: T): T extends true ? string : number
+
+//  Type is string | number
+let x = f(Math.random() < 0.5)
+
+```
+
+另一个例子设计TypeName类型别名，它使用了嵌套了有条件类型：
+```ts
+type TypeName<T> = 
+  T extends string ? 'string' :
+  T extends number ? 'number' :
+  T extends boolean ? 'boolean' :
+  T extends undefined ? 'undefined' :
+  T extends Function ? 'function' :
+  'object';
+
+type T0 = TypeName<string>; // string
+type T1 = TypeName<'a'> // string
+type T2 = TypeName<true> // boolean
+type T3 = TypeName<() => void> // function
+type T4 = TypeName<string[]>; // object
+```
+
+下面是一个有条件类型被推迟解析的例子：
+
+```ts
+interface Foo {
+  propA: boolean
+  propB: boolean
+}
+declare function f<T>(x: T): T exnteds Foo ? string : number;
+
+function foo<U>(x: U) {
+  let a = f(x)
+
+  let b: string | number = a;
+}
+```
+
+这里，a变量含有未确定的有条件类型。当有另一段代码调用foo，它会用其他类型替换U，TS将重新计算有条件类型，就决定它是否可以选择一个分支
+
+于此同时，我们可以将有条件类型复制给其他类型，只要有条件类型的每个分支都可以赋值给目标类型。因此在我们的例子里，我们可以将`U extends Foo ? string : number`赋值给`stirng | number`，因为不管这个有条件类型最终结果是什么，它只能是string或number
+
+### 分布式有条件类型
+如果有条件类型里带检查的类型是`naked type parameter`，那么它也被成为‘分布式有条件类型’。分布式有条件类型在实例化时会自动分发成联合类型。例如，实例化`T extends U ? X : Y`，`T`的类型为`A | B | C`，会解析为`(A extends U ? X : Y) | (B extends U ? X : U) | (C extends U ? X : Y)`
+
+```ts
+type T10 = TypeName<string | (() => void)>; // string | function
+type T12 = TypeName<string | string[] | undefined> // string | object | undefined
+type T11 = TypeName<string[] | number[]> // object
+```
+
+在T extends U ? X : Y的实例化里，对T的引用被解析为联合类型的一部分（比如， T指向某一单个部分，在有条件类型分布到联合类型之后）。此外，在`X`内对`T`的引用又一个附加的类型参数约束`U`（例如，T被当成X内可赋值给U）
+
+```ts
+type BoxedValue<T> = {value: T}
+type BoxedArray<T> = {array: T[]}
+type Boxed<T> = T extends any[] ? BoxedArray<T[number]> : BoxedValue<T>
+```
