@@ -654,4 +654,26 @@ type Record<K extends keyof any, T> = {
   [P in K]: T;
 }
 ```
-bbb
+
+Readonly, Partial和Pick是同态的，但Record不是。因为Record并不需要输入类型来拷贝属性，所以他不属于同态：
+```ts
+type ThreeStringProps = Record<'prop1' | 'prop2' | 'prop3', string>
+const obj: ThreeStringProps = {
+  prop1: 'a',
+  prop2: 'b',
+  prop3: 'c',
+}
+```
+
+### 由映射类型进行推断
+现在你了解了如何包装一个类型的属性，那么接下来就是如何拆包
+```ts
+function unproxify<T>(t: Proxify<T>): T {
+  let result = {} as T;
+  for (const k in t) {
+    result[k] = t[k].get()
+  }
+  return result;
+}
+
+```
