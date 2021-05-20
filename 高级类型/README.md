@@ -748,4 +748,143 @@ type T11 = TypeName<string[] | number[]> // object
 type BoxedValue<T> = {value: T}
 type BoxedArray<T> = {array: T[]}
 type Boxed<T> = T extends any[] ? BoxedArray<T[number]> : BoxedValue<T>
+
+type T20 = Boxed<string>    // BoxedValue<string>
+type T21 = Boxed<any[]>  // BoxedArray<number>
+type T22 = Boxed<string[]>  // BoxedArray<string>
+type T23 = Boxed<string | number[]> // BoxedValue<string> | BoxedArray<number>
 ```
+
+有条件类型的分布式的属性可以方便地用来过滤联合类型
+```ts
+type Diff<T, U> = T extends U ? never : T
+type Filter<T, U> = T extends U ? T : never
+
+type T30 = Diff<'a' | 'b' | 'c'|'d'|, 'a'|'c'|'f'> // 'b' | 'd'
+type T31 = Filter<'a' | 'b' | 'c' | 'd' , 'a'|'c'|'f'> // 'a' | 'c'
+type T32 = Diff<string | number | (() => void), Function> // string | number
+type T32 = Filter<string | number | (() => void), Function> // (() => void)
+
+type NonNullable<T> = Diff<T, null | undefined>;  // Remove null and undefined form T
+
+type T34 = NonNullable<string | number | undefined> // string | number
+type T35 = NonNullable<string | string[] | null | undefined> // string | string[]
+
+function f1<T>(x: T, y: NonNullable<T>) {
+  x = y; // ok
+  y = x; // Error
+  let s1: string = x; // Error
+  let s2: string = y; // Ok
+}
+```
+
+有条件类型与映射类型结合时特别有用
+
+```ts
+type FunctionPropertyNames<T> =  {
+  [K in keyof T]: T[K] extends Function ? K : never
+}[keyof T]
+
+type FunctionProperties<T> = Pick<T, FunctionPropertyNames<T>>
+
+
+type NonFunctionPropertyNames<T> = {
+  [K in keyof T]: T[K] extends Function ? never : K
+}[keyof T]
+type NonFunctionProperties<T> = Pick<T, NonFunctionPropertyNames<T>>
+
+interface Part {
+  id: number;
+  name: string;
+  subparts: Part[];
+  updatePart(newName: string): void
+}
+type T40 = FunctionPropertyNames<Part>;
+type T41 = NonFunctionPropertyNames<Part>;
+type T42 = Functionproperties<Part>;
+type T43 = NonFunctionProperties<Part>;
+
+```
+
+与联合类型和交叉类型相似，有条件类型不允许递归地引用自己。比如下面的错误
+
+```ts
+type ElementType<T> = T extends any[] ? ElementType<T[number]> : T // error
+```
+
+### 有条件类型中的类型推断
+现在在有条件类型的`extends`子语句中，允许`infer`声明，它会引入一个待推断的类型变量，这个推断的类型变量可以在有条件类型的true分支中被引用。允许出现多个同类型变量的`infer`
+
+例如，下面代码会提取函数类型的返回值类型：
+```ts
+type ReturnType<T> = T extends (...args: any[]) => infer R ? R : any
+```
+上面的例子表示如果函数的返回值为T，那么type类型为T否则为any
+
+```ts
+interface User {
+  name: string
+  age: number
+}
+type ReturnType<T> = T extends (...args: any[]) => infer R ? R : any
+type Func = (name: stirng) => User
+type AA = ReturnType<Func>
+```
+
+有条件类型可以嵌套来构成一系列的匹配模式，按顺序进行求值：
+
+```ts
+type Unpacked<T> = 
+  T extends (infer U)[] ? U :
+  T extends (...args: any[]) => infer U ? U :
+  T extends Promise<infer U> ? U :
+  T;
+
+type T0 = Unpacked<string>;  // string
+type T1 = Unpacked<string[]>;  // string
+type T2 = Unpacked<() => string>;  // string
+type T3 = Unpacked<Promise<string>>;  // string
+type T4 = Unpacked<Promise<string>[]>; // Promise<string>
+type T5 = Unpacked<Unpacked<Promise<string>[]>>;  // string
+```
+
+下面的例子解释了在协变位置上，同一个类型变量的多个候选类型会被推断为联合类型：
+
+```ts
+type Foo<T> = T extends {a: infer U, b: infer U} ? U : never
+type T10 = Foo<{a: string, b: string}> // string
+type T11 = Foo<{a: string, b: number}> // string | number
+```
+
+相似地，在逆变位置上，同一个类型变量的多个候选类型会被推断为交叉类型
+
+```ts
+type Bar<T> = T extends { a: (x: infer U) => void, b: (x: infer U) => void } ? U : never
+type T20 = Bar<{a: (x: string) => void, b: (x: string) => void}>
+type T21 = Bar<{a: (x: string) => void, b: (x: number) => void}>
+
+```
+
+当判断具有多个调用签名（例如函数重载类型）的类型时，用最后的签名（大概是最自由的包含所有情况的签名）进行推断。无法根据参数类型列表来解析重载
+
+```ts
+declare function foo(x: string): number;
+declare function foo(x: number): string;
+declare function foo(x: string | number): string | number;
+type T30 = ReturnType<typeof foo>; // string | number
+```
+
+无法在正常类型参数的约束子语句中使用`infer`声明：
+```ts
+type ReturnType<T extends (...args: any[]) => infer R> = R
+```
+
+但是，可以这样达到同样的效果，在约束里删掉类型变量，用有条件类型替换
+```ts
+type AnyFunction = (...args: any[]) => any;
+type ReturnType<T extends AnyFunction> = T extends (...args: any[]) => infer R ? R : any
+```
+```ts
+type ReturnType<T> = T extends (...args: any[]) => infer R ? R : T
+```
+### 预定义的有条件类型
