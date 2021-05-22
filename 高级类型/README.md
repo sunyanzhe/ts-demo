@@ -888,3 +888,9 @@ type ReturnType<T extends AnyFunction> = T extends (...args: any[]) => infer R ?
 type ReturnType<T> = T extends (...args: any[]) => infer R ? R : T
 ```
 ### 预定义的有条件类型
+TS2.8在`lib.d.ts`里添加了一些预定义的有条件类型
+1. `Exclude<T, U>` -- 从T中剔除可以赋值给U的类型
+2. `Extract<T, U>` -- 提取T中可以赋值给U的类型
+3. `NonNullable<T>` -- 从T中剔除null和undefined
+4. `ReturnType<T>` -- 获取函数返回值类型
+5. `INstanceType<T>` -- 获取构造函数类型的实例类型
