@@ -183,3 +183,106 @@ type T7 = Parameters<Function>
 
 ## ConstructorParameters<Type>
 由构造函数类型来构建出一个元组类型或数组类型。由构造函数类型`Type`的参数类型来构建出一个元组类型。（若`Type`不是构造函数类型，则返回`never`）。
+
+### 例子
+```ts
+type T0 = ConstructorParameters<ErrorConstructor> // [message?: string | undefined]
+```
+
+## ReturnType<Type>
+有函数类型`Type`的返回值类型构建一个新类型
+
+### 例子
+```ts
+type T0 = ReturnType<() => string> // string
+type T1 = ReturnType<(s: string) => void> // void
+```
+
+
+## InstanceType<Type>
+由构造函数类型`Type`的实例类型来构建一个新类型
+
+### 例子
+```ts
+class C {
+  x = 0;
+  y = 0;
+}
+type T0 = InstanceType<typeof C> // C
+type T1 = InstanceType<any> // any
+type T2 = InstanceType<never> // any
+type T3 = InstanceType<string> // error
+type T3 = InstanceType<Function> // error
+```
+
+## Required<Type>
+构建一个类型，是类型`Type`的所有制为`required`，与此相反的为`Partial`
+
+### 例子
+
+```ts
+interface Props {
+  a?: number;
+  b?: string;
+}
+const obj: Props = { a: 5 } // ok
+const obj2: Required<Props> = { a: 5 } // Erro
+```
+
+## ThisParameterType<Type>
+从函数类型中提取`this`参数的类型。若函数类型不包含`this`参数，则返回`unknow`类型。
+
+```ts
+function toHex(this: Number) {
+  return this.toString(16)
+}
+function numberToString(n: ThisParameterType<typeof toHex>) {
+  return toHex.apply(n)
+}
+```
+
+
+## OmitThisParameter<Type>
+
+从`Type`类型中剔除`this`参数。若未声明`this`参数，则结果类型为`Type`。否则，由`Type`类型来构建一个不带`this`参数的类型。泛型会被忽略，并且只有最后的重载签名会被采用。
+
+### 例子
+```ts
+function toHex(this: number) {
+  return this.toString(16)
+}
+const fiveToHex: OmitThisParameter<typeof toHex> = toHex.bind(5)
+```
+
+
+## ThisType
+这个工具不会返回一个转换后的类型。他做上下文的`this`类型的一个标记。注意若想使用此类型，必须启用`--noImplicitThis`
+
+### 例子
+```ts
+// Compile with --noImplicitThis
+type ObjectDescriptor<D, M> = {
+  data?: D;
+  methods?: M & ThisType<D & M>; // Type of 'this' in methods is (D&M)
+}
+function makeObject<D, M>(desc: ObjectDescriptor<D, M>): D & M {
+  let data: object = desc.data || {}
+  let methods: object = desc.methods || {}
+  return {...data, ...methods} as D & M;
+}
+
+let obj = makeObject({
+  data: {x: 0, y : 0},
+  methods: {
+    moveBy(dx: number, dy: number) {
+      this.x += dx
+      this.y += dy
+    }
+  }
+})
+```
+
+上面例子中，`makeObject`参数里的`methods`对象具有一个上下文类型`ThisType<D&M>`，因此`methods`对象的方法里`this`的类型为`{x: number, y: number} & {moveBy(dx: number, dy: number): number}`
+
+在`lib.d.ts`里，`ThisType<T>`标识接口是个简单的空接口声明。除了在被识别为对象字面量的上下文类型之外，这个接口与一般的空接口没什么不同。
+
