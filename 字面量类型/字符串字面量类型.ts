@@ -4,4 +4,6 @@ function add(name: a) {
   return name
 }
 
+type aaaa =  string & boolean
 add(1)
+
