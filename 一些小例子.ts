@@ -34,7 +34,7 @@ type Format1080 = { urls: {format1080p: string}}
 
 type Video = Format1080 | Format720 | Format480 | Format320
 
-type keys = Video['urls']
+type keys = keyof Video['urls']
 
 // 由于第二个条件 推断infer R处于的位置为逆变位 为了兼容性 将 ｜ 转变为了 &
 type UnionToIntersection<T> = (T extends any ? (arg: T) => any : never) extends (arg: infer R) => any ? R : never
