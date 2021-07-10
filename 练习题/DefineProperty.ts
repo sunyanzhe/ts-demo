@@ -1,4 +1,4 @@
-const storage = {
+let storage = {
   maxNumber: 99
 }
 

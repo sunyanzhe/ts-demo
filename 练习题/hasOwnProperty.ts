@@ -4,8 +4,8 @@ function print(person: object) {
   if(typeof person === 'object' 
   && Object.hasOwnProperty.call(person, 'name') 
   // yes! name now exists in person 👍
-  && typeof person.name === 'string' 
   ) {
+    console.log(person.name)
     // do something with person.name, which is a string
   }
 }
