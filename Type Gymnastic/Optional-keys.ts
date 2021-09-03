@@ -9,3 +9,4 @@ type OptionalKeys<T> = Exclude<keyof T, keyof RequiredKeys<T>>
 type RequiredKeys<T> = {
   [K in keyof T as T[K] extends Required<T>[K] ? K : never]: T[K] 
 }
+
